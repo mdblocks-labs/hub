@@ -40,3 +40,4 @@ The full rules are in the [Hub repository specification](https://mdblocks.com/do
 Every Hub page has a Report link to this repository's
 [issue form](https://github.com/mdblocks-labs/hub/issues/new?template=report.yml).
 For a security problem that should not be public, see [SECURITY.md](SECURITY.md).
+
