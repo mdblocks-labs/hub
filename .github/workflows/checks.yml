@@ -1,0 +1,96 @@
+# A pull request's checks (hub-repo.md §§2–4, 11). Unprivileged, also for
+# pull requests from this repository's own branches. The required status
+# `hub/review` is set afterwards by `review`, which reads this run's artifact.
+name: checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      listed: ${{ steps.plan.outputs.listed }}
+    steps:
+      # The merge of the pull request into main, and main before it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: head
+          fetch-depth: 2
+          persist-credentials: false
+      - run: mkdir base && git -C head archive HEAD^1 | tar -x -C base
+
+      - name: Install mdb
+        run: head/checks/scripts/install-tools.sh head/checks/tools.toml "$RUNNER_TEMP/tools" mdb
+
+      - name: Check the repository and list the changed entries
+        id: plan
+        run: |
+          # The published listing, so a field list change keeps every value in use.
+          args=()
+          code=$(curl -sS -o listing.json -w '%{http_code}' https://mdblocks.com/hub-staging/v3/listing.json || true)
+          if [ "$code" = 200 ]; then
+            args+=(--listing listing.json)
+          elif ! git -C head diff --quiet HEAD^1 HEAD -- fields.toml && [ -n "$(find base/entries -name '*.toml' -print -quit 2>/dev/null)" ]; then
+            echo "::error::The published listing answered $code, so this fields.toml change can't be checked against the fields listed libraries use. Re-run once it answers."
+            exit 1
+          else
+            echo "::warning::The published listing answered $code; field list changes are not checked against it"
+          fi
+          status=0
+          "$RUNNER_TEMP/tools/bin/mdb" library hub-check head --base base "${args[@]}" --json > plan.json || status=$?
+          "$RUNNER_TEMP/tools/bin/mdb" library hub-check head --base base "${args[@]}" || true
+          echo "listed=$(jq -c '[.changes[] | select(.kind == "first_publication" or .kind == "update")]' plan.json)" >> "$GITHUB_OUTPUT"
+          exit $status
+
+      - name: Check the Lucide list against its pinned package
+        run: |
+          if git -C head diff --quiet HEAD^1 HEAD -- checks/lucide.txt; then exit 0; fi
+          read -r _ package version _ sha < <(head -n 1 head/checks/lucide.txt)
+          curl -fsSL -o lucide.tgz "https://registry.npmjs.org/$package/-/$package-$version.tgz"
+          echo "$sha  lucide.tgz" | sha256sum --check --quiet -
+          tar -tzf lucide.tgz | sed -nE 's|^package/icons/([^/]+)\.svg$|\1|p' | LC_ALL=C sort > names.txt
+          diff <(grep -v '^#' head/checks/lucide.txt) names.txt
+
+  check:
+    needs: plan
+    if: needs.plan.outputs.listed != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        change: ${{ fromJSON(needs.plan.outputs.listed) }}
+    uses: ./.github/workflows/run-checks.yml
+    with:
+      entry: ${{ matrix.change.entry }}
+      source: ${{ matrix.change.source }}
+      commit: ${{ matrix.change.commit }}
+      previous: ${{ matrix.change.previous || '' }}
+      previous_source: ${{ matrix.change.previous_source || matrix.change.source }}
+
+  # One artifact for `review`: every listed commit's results and the pull request's number.
+  results:
+    needs: [plan, check]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: results-*
+          path: review/results
+          merge-multiple: true
+      # A pull request with no listed commit downloads nothing and creates no folder.
+      - run: mkdir -p review && echo "${{ github.event.pull_request.number }}" > review/pull-request
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hub-review
+          path: review/
+          retention-days: 30

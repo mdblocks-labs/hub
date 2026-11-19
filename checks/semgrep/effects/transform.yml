@@ -1,0 +1,112 @@
+# Effects a leaf declaring `execution: transform` must not have (hub-repo.md §4,
+# `effects`). The check script keeps a match only when the file belongs to such
+# a leaf. Rule ids start with `transform-`.
+rules:
+  - id: transform-network-python
+    languages: [python]
+    severity: WARNING
+    message: Network access
+    pattern-either:
+      - pattern: socket.socket(...)
+      - pattern: socket.create_connection(...)
+      - pattern: urllib.request.urlopen(...)
+      - pattern: urllib.request.Request(...)
+      - pattern: http.client.HTTPConnection(...)
+      - pattern: http.client.HTTPSConnection(...)
+      - pattern: requests.$METHOD(...)
+      - pattern: httpx.$METHOD(...)
+      - pattern: urllib3.$METHOD(...)
+      - pattern: aiohttp.ClientSession(...)
+      - pattern: ftplib.FTP(...)
+      - pattern: smtplib.SMTP(...)
+      - pattern: paramiko.SSHClient(...)
+
+  - id: transform-network-js
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Network access
+    pattern-either:
+      - pattern: fetch(...)
+      - pattern: new WebSocket(...)
+      - pattern: new XMLHttpRequest(...)
+      - patterns:
+          - pattern-either:
+              - pattern: require("$M")
+              - pattern: import $X from "$M"
+              - pattern: import * as $X from "$M"
+              - pattern: import {...} from "$M"
+          - metavariable-regex:
+              metavariable: $M
+              regex: ^(node:)?(http|https|http2|net|tls|dgram|dns)$
+
+  - id: transform-network-bash
+    languages: [generic]
+    paths:
+      include: ["*.sh", "*.bash"]
+    severity: WARNING
+    message: Network access
+    pattern-regex: (^|[;&|`(]\s*)(curl|wget|nc|ncat|ssh|scp|rsync|ftp)\s
+
+  - id: transform-subprocess-python
+    languages: [python]
+    severity: WARNING
+    message: A subprocess
+    pattern-either:
+      - pattern: subprocess.$F(...)
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+      - pattern: asyncio.create_subprocess_exec(...)
+      - pattern: asyncio.create_subprocess_shell(...)
+      - pattern: pty.spawn(...)
+      - patterns:
+          - pattern: os.$EXEC(...)
+          - metavariable-regex:
+              metavariable: $EXEC
+              regex: ^(exec[lv]p?e?|spawn[lv]p?e?|posix_spawnp?|fork|forkpty)$
+
+  - id: transform-subprocess-js
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: A subprocess
+    patterns:
+      - pattern-either:
+          - pattern: require("$M")
+          - pattern: import $X from "$M"
+          - pattern: import * as $X from "$M"
+          - pattern: import {...} from "$M"
+      - metavariable-regex:
+          metavariable: $M
+          regex: ^(node:)?(child_process|worker_threads|cluster)$
+
+  - id: transform-write-python
+    languages: [python]
+    severity: WARNING
+    message: A file write outside the harness's outputs
+    pattern-either:
+      - pattern: open($P, "=~/[wax+]/", ...)
+      - pattern: open($P, mode="=~/[wax+]/", ...)
+      - pattern: io.open($P, "=~/[wax+]/", ...)
+      - pattern: $X.write_text(...)
+      - pattern: $X.write_bytes(...)
+      - pattern: os.remove(...)
+      - pattern: os.unlink(...)
+      - pattern: os.rename(...)
+      - pattern: os.replace(...)
+      - pattern: os.makedirs(...)
+      - pattern: os.mkdir(...)
+      - pattern: os.chmod(...)
+      - patterns:
+          - pattern: shutil.$COPY(...)
+          - metavariable-regex:
+              metavariable: $COPY
+              regex: ^(copy|copy2|copyfile|copytree|move|rmtree)$
+
+  - id: transform-write-js
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: A file write outside the harness's outputs
+    patterns:
+      - pattern: $FS.$WRITE(...)
+      - metavariable-regex:
+          metavariable: $WRITE
+          regex: ^(writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream|rm|rmSync|unlink|unlinkSync|rename|renameSync|mkdir|mkdirSync)$

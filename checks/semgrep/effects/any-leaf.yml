@@ -1,0 +1,120 @@
+# Effects any leaf is checked for (hub-repo.md §4, `effects`).
+#
+# `env-*` rules bind the variable's name to $NAME; the check script keeps a
+# match unless the name is a literal listed in the leaf's `secrets` or a
+# `config` key's `from_env`. `execute-*` rules match executing a file whose
+# path is computed or may lie outside the leaf's `code` hash, such as one under
+# `.style/`; every match is kept. `import-js-relative` matches a literal
+# relative import; the script keeps it when the leaf's code hash does not cover
+# the file it names.
+rules:
+  - id: env-python
+    languages: [python]
+    severity: WARNING
+    message: Reads an environment variable
+    pattern-either:
+      - pattern: os.environ[$NAME]
+      - pattern: os.environ.get($NAME, ...)
+      - pattern: os.getenv($NAME, ...)
+      - pattern: os.environb[$NAME]
+      - pattern: os.getenvb($NAME, ...)
+
+  - id: env-python-mapping
+    languages: [python]
+    severity: WARNING
+    message: Reads the whole environment
+    patterns:
+      - pattern-either:
+          - pattern: os.environ
+          - pattern: os.environb
+      - pattern-not-inside: os.environ[$N]
+      - pattern-not-inside: os.environ.get(...)
+      - pattern-not-inside: os.environb[$N]
+
+  - id: env-js
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Reads an environment variable
+    pattern-either:
+      - pattern: process.env.$NAME
+      - pattern: process.env[$NAME]
+
+  - id: env-js-mapping
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Reads the whole environment
+    patterns:
+      - pattern: process.env
+      - pattern-not-inside: process.env.$N
+      - pattern-not-inside: process.env[$N]
+
+  - id: execute-python
+    languages: [python]
+    severity: WARNING
+    message: Executes a file or computed code
+    pattern-either:
+      - pattern: runpy.run_path(...)
+      - pattern: runpy.run_module(...)
+      - pattern: importlib.util.spec_from_file_location(...)
+      - pattern: importlib.machinery.SourceFileLoader(...)
+      - patterns:
+          - pattern-either:
+              - pattern: exec($CODE, ...)
+              - pattern: eval($CODE, ...)
+              - pattern: compile($CODE, ...)
+          - pattern-not: exec("...", ...)
+          - pattern-not: eval("...", ...)
+          - pattern-not: compile("...", ...)
+      - patterns:
+          - pattern: importlib.import_module($MOD, ...)
+          - pattern-not: importlib.import_module("...", ...)
+      - patterns:
+          - pattern: __import__($MOD, ...)
+          - pattern-not: __import__("...", ...)
+
+  - id: execute-js
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Executes a file or computed code
+    pattern-either:
+      - pattern: vm.runInThisContext(...)
+      - pattern: vm.runInNewContext(...)
+      - pattern: vm.runInContext(...)
+      - pattern: new vm.Script(...)
+      - pattern: new Function(...)
+      - pattern: Function(...)
+      - patterns:
+          - pattern: eval($CODE)
+          - pattern-not: eval("...")
+      - patterns:
+          - pattern: import($MOD)
+          - pattern-not: import("...")
+      - patterns:
+          - pattern: require($MOD)
+          - pattern-not: require("...")
+
+  - id: import-js-relative
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Imports a file by a relative path
+    patterns:
+      - pattern-either:
+          - pattern: require("$M")
+          - pattern: import("$M")
+          - pattern: import "$M"
+          - pattern: import $X from "$M"
+          - pattern: import * as $X from "$M"
+          - pattern: import {...} from "$M"
+          - pattern: export * from "$M"
+          - pattern: export {...} from "$M"
+      - metavariable-regex:
+          metavariable: $M
+          regex: ^\.\.?/
+
+  - id: execute-bash
+    languages: [generic]
+    paths:
+      include: ["*.sh", "*.bash"]
+    severity: WARNING
+    message: Sources a computed path or a file under .style/
+    pattern-regex: (^|[;&|]\s*)(source|\.)\s+("?[^\s;"]*(\$|\.style/|\.\./))

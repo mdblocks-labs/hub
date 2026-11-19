@@ -1,0 +1,29 @@
+# Every tool CI runs, pinned by exact version and the SHA-256 of the file it
+# downloads (hub-repo.md §4.1). semgrep runs from its container image, pinned
+# by digest; codeql is the CodeQL bundle; licensee is its RubyGems file.
+# Changing a version re-runs every check for every listed entry.
+
+[tools.mdb]
+# Placeholder: the first mdb release with `library compare` and `library hub-check`.
+version = "0.0.0"
+sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+
+[tools.semgrep]
+version = "1.183.0"
+sha256 = "2e45517a85e13a9cca14a2a00df6bb48affd66b8ebfae1b0991cd57578362fb0"
+
+[tools.osv-scanner]
+version = "2.7.0"
+sha256 = "160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b"
+
+[tools.gitleaks]
+version = "8.30.1"
+sha256 = "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+
+[tools.codeql]
+version = "2.27.3"
+sha256 = "64518dc413c8e7b5733fee2489e830a899bb1e3f28c8873b5869d5cc90164c5c"
+
+[tools.licensee]
+version = "10.1.0"
+sha256 = "db9c19b3bf4e8bee2735a10004db976fb85bf5811c708f8786c9e9aab61347d5"

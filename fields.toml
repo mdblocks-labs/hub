@@ -1,0 +1,80 @@
+# The Field → Domain → Application list (hub-repo.md §3). A library's `field`
+# in its library.md must name one row: `<field> / <domain> / <application>`.
+# The order here is the order the Hub shows. Add a value by pull request.
+format = 1
+
+[[field]]
+name = "Engineering"
+color = "#5497d9"
+
+[[field.domain]]
+name = "Mechanical engineering"
+icon = "gauge"
+applications = ["Heat transfer", "Fluid dynamics", "Control systems"]
+
+[[field.domain]]
+name = "Electrical engineering"
+icon = "zap"
+applications = ["Signal processing", "Power systems"]
+
+[[field.domain]]
+name = "Chemical engineering"
+icon = "flask-conical"
+applications = ["Reaction kinetics", "Process simulation"]
+
+[[field]]
+name = "Science"
+color = "#36a980"
+
+[[field.domain]]
+name = "Earth science"
+icon = "cloud"
+applications = ["Weather and climate", "Remote sensing"]
+
+[[field.domain]]
+name = "Biology"
+icon = "leaf"
+applications = ["Genomics", "Microscopy"]
+
+[[field.domain]]
+name = "Physics"
+icon = "magnet"
+applications = ["Optics", "Particle simulation"]
+
+[[field]]
+name = "Machine learning"
+color = "#9e80d1"
+
+[[field.domain]]
+name = "Tabular"
+icon = "table"
+applications = ["Forecasting", "Classification"]
+
+[[field.domain]]
+name = "Computer vision"
+icon = "eye"
+applications = ["Image classification", "Object detection"]
+
+[[field.domain]]
+name = "Language"
+icon = "type"
+applications = ["Document understanding", "Text classification"]
+
+[[field]]
+name = "Data and reports"
+color = "#c48139"
+
+[[field.domain]]
+name = "Tables"
+icon = "list-checks"
+applications = ["Cleaning", "Validation"]
+
+[[field.domain]]
+name = "Reports"
+icon = "file-text"
+applications = ["Charts", "Documents"]
+
+[[field.domain]]
+name = "Integration"
+icon = "plug"
+applications = ["Messaging", "Databases"]

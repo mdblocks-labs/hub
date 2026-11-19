@@ -1,0 +1,40 @@
+name: Report a library
+description: Tell the maintainers that a library in the mdBlocks Hub is malicious, broken, mislicensed or wrong in another way.
+title: "Report: "
+labels: [report]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for a library listed in the mdBlocks Hub. To report a vulnerability that should not be public, use [private vulnerability reporting](https://github.com/mdblocks-labs/hub/security/advisories/new) instead.
+  - type: input
+    id: entry
+    attributes:
+      label: Library
+      description: Its Hub name, `owner/name`.
+      placeholder: example/signal
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Listed commit
+      description: The commit the Hub page shows. Filled in when you come from the page.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is wrong
+      options:
+        - Malicious
+        - Broken
+        - Licence
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What you saw, and where in the library.
+    validations:
+      required: true

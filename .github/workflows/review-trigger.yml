@@ -1,0 +1,21 @@
+# A review changes whether the merge rule passes (hub-repo.md §2). A review
+# event on a fork's pull request gets no write token, so this run only names
+# the pull request; `review` runs on its completion.
+name: review-trigger
+
+on:
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions: {}
+
+jobs:
+  name:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: mkdir review && echo "${{ github.event.pull_request.number }}" > review/pull-request
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pull-request
+          path: review/
+          retention-days: 1

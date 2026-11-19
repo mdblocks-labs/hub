@@ -1,0 +1,34 @@
+# Pickle-family loads (hub-repo.md §4, `pickle`). Loading a pickle runs code
+# from the data, so every match needs a person. Semgrep resolves imported names
+# and aliases, so `from pickle import load` and `import pickle as pk` match too.
+rules:
+  - id: pickle-load
+    languages: [python]
+    severity: WARNING
+    message: Loads pickle data
+    pattern-either:
+      - pattern: pickle.load(...)
+      - pattern: pickle.loads(...)
+      - pattern: pickle.Unpickler(...)
+      - pattern: _pickle.load(...)
+      - pattern: _pickle.loads(...)
+      - pattern: _pickle.Unpickler(...)
+      - pattern: cPickle.load(...)
+      - pattern: cPickle.loads(...)
+      - pattern: cPickle.Unpickler(...)
+      - pattern: joblib.load(...)
+      - pattern: numpy.load(..., allow_pickle=True, ...)
+      - pattern: pandas.read_pickle(...)
+      - pattern: dill.load(...)
+      - pattern: dill.loads(...)
+      - pattern: cloudpickle.load(...)
+      - pattern: cloudpickle.loads(...)
+      - patterns:
+          - pattern: torch.load(...)
+          - pattern-not: torch.load(..., weights_only=True, ...)
+
+  - id: pickle-ref
+    languages: [generic]
+    severity: WARNING
+    message: Refers to a pickle-family file
+    pattern-regex: (?i)(hf|s3|https?)://[^\s"'`]+\.(pkl|pickle|pt|pth|bin|ckpt|joblib)(?=[?#\s"'`]|$)

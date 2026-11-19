@@ -1,0 +1,166 @@
+# Sets the required status `hub/review` (hub-repo.md §2, §10) after the checks
+# and after each review, and posts each update's classifier result. It runs
+# only `mdb` and this repository's scripts from main; the pull request's files
+# are extracted with `git archive` and read as data, never run.
+name: review
+
+on:
+  workflow_run:
+    workflows: [checks, review-trigger]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  statuses: write
+  pull-requests: write
+
+# One status writer per head commit: a later review's run reads the reviews and
+# writes the status only after an earlier run for that commit has finished.
+concurrency:
+  group: review-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+env:
+  # The publish service's bot login (hub-publish.md).
+  PUBLISH_BOT: mdblocks-publish[bot]
+  GH_TOKEN: ${{ github.token }}
+  REPO: ${{ github.repository }}
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      # First, so a run that fails later leaves no earlier success standing.
+      - name: Mark hub/review pending
+        env:
+          HEAD: ${{ github.event.workflow_run.head_sha }}
+          TARGET: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api "repos/$REPO/statuses/$HEAD" -f state=pending -f context=hub/review \
+            -f description="Applying the merge rule" -f target_url="$TARGET" >/dev/null
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: main
+          persist-credentials: false
+
+      - name: Install mdb
+        run: main/checks/scripts/install-tools.sh main/checks/tools.toml "$RUNNER_TEMP/tools" mdb
+
+      - name: Find the pull request
+        id: pr
+        env:
+          RUN: ${{ github.event.workflow_run.id }}
+          TRIGGER: ${{ github.event.workflow_run.name }}
+          TRIGGER_HEAD: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          name=$([ "$TRIGGER" = checks ] && echo hub-review || echo pull-request)
+          gh run download "$RUN" -R "$REPO" -n "$name" -D trigger
+          number=$(tr -cd 0-9 < trigger/pull-request)
+          head=$(gh api "repos/$REPO/pulls/$number" --jq .head.sha)
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          # A run for an older head writes nothing: the current head's runs set its status.
+          if [ "$head" = "$TRIGGER_HEAD" ]; then echo "head=$head" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Find the checks run for the head commit
+        id: checks
+        if: steps.pr.outputs.head != ''
+        env:
+          HEAD: ${{ steps.pr.outputs.head }}
+        run: |
+          run=$(gh run list -R "$REPO" --workflow checks.yml --commit "$HEAD" --limit 1 --json databaseId,status,conclusion --jq '.[0]')
+          {
+            echo "id=$(jq -r '.databaseId // ""' <<<"$run")"
+            echo "status=$(jq -r '.status // "missing"' <<<"$run")"
+            echo "conclusion=$(jq -r '.conclusion // ""' <<<"$run")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Read the base and the head as files
+        if: steps.checks.outputs.status == 'completed'
+        env:
+          NUMBER: ${{ steps.pr.outputs.number }}
+          HEAD: ${{ steps.pr.outputs.head }}
+        run: |
+          git init --quiet --bare repo.git
+          git -C repo.git fetch --quiet --depth 2 "https://github.com/$REPO.git" "refs/pull/$NUMBER/merge"
+          [ "$(git -C repo.git rev-parse FETCH_HEAD^2)" = "$HEAD" ] || { echo "stale=1" >> "$GITHUB_ENV"; exit 0; }
+          mkdir base head
+          git -C repo.git archive FETCH_HEAD^1 | tar -x -C base
+          git -C repo.git archive FETCH_HEAD | tar -x -C head
+
+      - name: Apply the merge rule
+        id: rule
+        if: steps.checks.outputs.status == 'completed' && env.stale != '1'
+        env:
+          NUMBER: ${{ steps.pr.outputs.number }}
+          CHECKS: ${{ steps.checks.outputs.id }}
+          CONCLUSION: ${{ steps.checks.outputs.conclusion }}
+        run: |
+          mdb="$RUNNER_TEMP/tools/bin/mdb"
+          gh run download "$CHECKS" -R "$REPO" -n hub-review -D review || true
+          mkdir -p review/results
+          "$mdb" library hub-check head --base base --json > plan.json || true
+          mapfile -t ids < <(jq -r '[.changes[].repository_id] | unique | .[]' plan.json)
+          python3 main/checks/scripts/pull_request.py "$REPO" "$NUMBER" "${ids[@]}" > pr.json
+          status=0
+          "$mdb" library hub-check head --base base --pull-request pr.json --bot "$PUBLISH_BOT" \
+            --results review/results --json > rule.json || status=$?
+          "$mdb" library hub-check head --base base --pull-request pr.json --bot "$PUBLISH_BOT" \
+            --results review/results || true
+          if [ "$CONCLUSION" != success ]; then
+            echo "state=failure" >> "$GITHUB_OUTPUT"
+            echo "description=A check refused or failed; see the checks run" >> "$GITHUB_OUTPUT"
+          elif [ $status -eq 0 ]; then
+            echo "state=success" >> "$GITHUB_OUTPUT"
+            echo "description=$(jq -r 'if (.merge.needs_person | length) > 0 then "Approved by a reviewer" else "Merges without a person" end' rule.json)" >> "$GITHUB_OUTPUT"
+          else
+            echo "state=failure" >> "$GITHUB_OUTPUT"
+            echo "description=$(jq -r '(.merge.blocked + [.refusals[]?.reason])[0] // "Blocked"' rule.json | cut -c1-138)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set hub/review
+        if: steps.pr.outputs.head != ''
+        env:
+          HEAD: ${{ steps.pr.outputs.head }}
+          STATE: ${{ steps.rule.outputs.state || 'pending' }}
+          DESCRIPTION: ${{ steps.rule.outputs.description || 'Waiting for the checks' }}
+          TARGET: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api "repos/$REPO/statuses/$HEAD" -f state="$STATE" -f context=hub/review \
+            -f description="$DESCRIPTION" -f target_url="$TARGET" >/dev/null
+
+      # §5's result, read as data from the artifact, capped and fenced.
+      - name: Post each update's classifier result
+        if: steps.rule.outputs.state != ''
+        env:
+          NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          jq -c '.changes[] | select(.kind == "update")' plan.json | while read -r change; do
+            entry=$(jq -r .entry <<<"$change")
+            commit=$(jq -r .commit <<<"$change")
+            previous=$(jq -r .previous <<<"$change")
+            repository=$(jq -r '.source | ltrimstr("github:")' <<<"$change")
+            result="review/results/$entry/$commit.compare.json"
+            [ -f "$result" ] || continue
+            marker="<!-- hub-compare:$entry -->"
+            {
+              echo "$marker"
+              echo "**$entry**: \`mdb library compare\` with the previous listed commit."
+              echo "Changes: https://github.com/$repository/compare/$previous...$commit"
+              echo
+              echo '```json'
+              head -c 65536 "$result" | tr -d '`'
+              echo
+              echo '```'
+            } > body.md
+            existing=$(gh api "repos/$REPO/issues/$NUMBER/comments?per_page=100" --paginate \
+              --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -n 1)
+            if [ -n "$existing" ]; then
+              gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@body.md >/dev/null
+            else
+              gh api "repos/$REPO/issues/$NUMBER/comments" -F body=@body.md >/dev/null
+            fi
+          done

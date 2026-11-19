@@ -1,0 +1,79 @@
+# One listed commit's checks (hub-repo.md §4), called by `checks` for a pull
+# request and by `build` on main. Unprivileged: read-only token, no secrets,
+# and the library tree is fetched without credentials.
+name: run-checks
+
+on:
+  workflow_call:
+    inputs:
+      entry:
+        type: string
+        required: true
+      source:
+        type: string
+        required: true
+      commit:
+        type: string
+        required: true
+      previous:
+        type: string
+        default: ""
+      previous_source:
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      ENTRY: ${{ inputs.entry }}
+      SOURCE: ${{ inputs.source }}
+      COMMIT: ${{ inputs.commit }}
+      PREVIOUS: ${{ inputs.previous }}
+      PREVIOUS_SOURCE: ${{ inputs.previous_source || inputs.source }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: hub
+          persist-credentials: false
+
+      - name: Install the pinned tools
+        run: |
+          echo "TOOLS=$RUNNER_TEMP/tools" >> "$GITHUB_ENV"
+          hub/checks/scripts/install-tools.sh hub/checks/tools.toml "$RUNNER_TEMP/tools"
+
+      - name: Fetch the listed commit
+        run: hub/checks/scripts/fetch.sh "$SOURCE" "$COMMIT" lib tree.txt
+
+      # A missing or unlisted `field` refuses the entry (hub-repo.md §3).
+      - name: Check the library's fields
+        run: '"$TOOLS/bin/mdb" library hub-check hub --library lib'
+
+      - name: Fetch the previous listed commit
+        if: inputs.previous != ''
+        run: hub/checks/scripts/fetch.sh "$PREVIOUS_SOURCE" "$PREVIOUS" prev prev-tree.txt
+
+      - name: Run the checks
+        run: |
+          args=()
+          [ -n "$PREVIOUS" ] && args+=(--prev prev)
+          python3 hub/checks/scripts/run_checks.py --hub hub --lib lib --tree tree.txt \
+            --entry "$ENTRY" --source "$SOURCE" --commit "$COMMIT" \
+            --tools "$TOOLS" --out results "${args[@]}"
+
+      - name: Name the artifact
+        if: always()
+        # `.` is in neither an owner nor a name, so two entries never share it.
+        run: echo "NAME=results-${ENTRY//\//.}" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ${{ env.NAME }}
+          path: results/
+          if-no-files-found: ignore
+          retention-days: 30
