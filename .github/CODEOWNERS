@@ -1,0 +1,5 @@
+# Maintainers own everything but the entries and removals the publish service
+# writes (hub-repo.md §1). A line with no owner removes ownership.
+*           @mdblocks-labs/hub-reviewers
+/entries/
+/removed/
