@@ -4,9 +4,9 @@
 # Changing a version re-runs every check for every listed entry.
 
 [tools.mdb]
-# Placeholder: the first mdb release with `library compare` and `library hub-check`.
-version = "0.0.0"
-sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+# The x86_64-unknown-linux-musl archive.
+version = "0.1.10"
+sha256 = "601298e7edae6840ddc85dd0dfd4e953df691b74c756a5dfdd8f1aa7c334bd54"
 
 [tools.semgrep]
 version = "1.183.0"
