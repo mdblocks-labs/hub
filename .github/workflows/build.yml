@@ -106,6 +106,8 @@ jobs:
 
   upload:
     needs: catalog
+    # A skipped `check` would otherwise skip this job too.
+    if: always() && needs.catalog.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: hub-publish
@@ -148,6 +150,7 @@ jobs:
 
   notify:
     needs: catalog
+    if: always() && needs.catalog.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       issues: write
