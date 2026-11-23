@@ -15,8 +15,8 @@ HOOKS = {"preinstall", "install", "postinstall", "prepare", "prepublish"}
 LFS = b"version https://git-lfs.github.com/spec/v1"
 # A multi-line literal (a one-line one is caught as minified) of base64 or hex.
 LONG_LITERAL = re.compile(r'("""|\'\'\'|`)([A-Za-z0-9+/=\s]{1000,})\1')
-# A computed argument to a code-running call.
-COMPUTED_CODE = re.compile(r"\b(eval|exec|compile|Function|__import__)\s*\(\s*(?![\"'`)])")
+# A computed argument to a code-running call; a literal may carry an r/b prefix.
+COMPUTED_CODE = re.compile(r"\b(eval|exec|compile|Function|__import__)\s*\(\s*(?![rRbB]{0,2}[\"'`]|\))")
 
 
 def listing(text):
