@@ -1,0 +1,8 @@
+format = 1
+source = "github:mdblocks-labs/machine-learning-examples"
+repository_id = 1468323091
+
+[[reviewed]]
+commit = "5511d301af3e7b765752f907bb55270f5cc7c9e0"
+tag = "v0.1.0"
+reviewer = "ShahyarTaheri"
