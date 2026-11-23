@@ -28,6 +28,8 @@ class _Refuse(urllib.request.HTTPRedirectHandler):
 
 
 NO_REDIRECTS = urllib.request.build_opener(_Refuse)
+# Cloudflare refuses urllib's default agent with 403.
+NO_REDIRECTS.addheaders = [("User-Agent", "mdblocks-hub-build")]
 
 
 def entries(hub):
