@@ -6,3 +6,13 @@ repository_id = 1468323091
 commit = "5511d301af3e7b765752f907bb55270f5cc7c9e0"
 tag = "v0.1.0"
 reviewer = "ShahyarTaheri"
+
+[[reviewed]]
+commit = "be326e743ba13afbfeafd3ec906b87b09f356461"
+tag = "v0.1.1"
+reviewer = "ShahyarTaheri"
+
+[[reviewed.cleared]]
+check = "secrets"
+date = 2026-11-23
+reviewer = "ShahyarTaheri"
