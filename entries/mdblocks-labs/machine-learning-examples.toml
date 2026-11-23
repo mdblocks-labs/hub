@@ -11,8 +11,3 @@ reviewer = "ShahyarTaheri"
 commit = "be326e743ba13afbfeafd3ec906b87b09f356461"
 tag = "v0.1.1"
 reviewer = "ShahyarTaheri"
-
-[[reviewed.cleared]]
-check = "secrets"
-date = 2026-11-23
-reviewer = "ShahyarTaheri"
