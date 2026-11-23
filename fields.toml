@@ -67,7 +67,7 @@ color = "#c48139"
 [[field.domain]]
 name = "Tables"
 icon = "list-checks"
-applications = ["Cleaning", "Validation"]
+applications = ["Cleaning", "Validation", "Extraction"]
 
 [[field.domain]]
 name = "Reports"
