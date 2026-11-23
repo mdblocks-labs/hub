@@ -46,22 +46,32 @@ name = "Machine learning"
 color = "#9e80d1"
 
 [[field.domain]]
+name = "Text"
+icon = "type"
+applications = ["Text classification", "Question answering", "Summarization", "Translation", "Text generation", "Search"]
+
+[[field.domain]]
+name = "Images"
+icon = "image"
+applications = ["Image classification", "Object detection", "Image segmentation", "Text to image"]
+
+[[field.domain]]
+name = "Audio"
+icon = "audio-lines"
+applications = ["Speech recognition", "Text to speech", "Audio classification"]
+
+[[field.domain]]
+name = "Multimodal"
+icon = "layers"
+applications = ["Document question answering", "Visual question answering", "Image to text"]
+
+[[field.domain]]
 name = "Tabular"
 icon = "table"
-applications = ["Forecasting", "Classification"]
-
-[[field.domain]]
-name = "Computer vision"
-icon = "eye"
-applications = ["Image classification", "Object detection"]
-
-[[field.domain]]
-name = "Language"
-icon = "type"
-applications = ["Document understanding", "Text classification"]
+applications = ["Classification", "Regression", "Forecasting"]
 
 [[field]]
-name = "Data and reports"
+name = "Data processing"
 color = "#c48139"
 
 [[field.domain]]
