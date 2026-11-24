@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Report abuse privately
+    url: https://github.com/mdblocks-labs/hub#reporting-a-library
+    about: Malware, copyright, licence, trademark or harassment in a listed library go to abuse@mdblocks.com, not to a public issue.
   - name: Report a vulnerability privately
     url: https://github.com/mdblocks-labs/hub/security/advisories/new
     about: For a security problem in a listed library that should not be public yet.

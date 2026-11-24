@@ -1,7 +1,7 @@
 # Rescue forks (hub-repo.md §9): after each merge that lists a commit, keep
-# that commit reachable in `mdblocks-hub`. Uses only the rescue app's token,
-# touches no library tree, and opens an issue when a fork or push fails; the
-# listing never waits for it.
+# that commit reachable in `mdblocks-hub`, and after each removal delete the
+# entry's fork. Uses only the rescue app's token, touches no library tree, and
+# opens an issue when a fork, push or deletion fails; neither waits for it.
 name: rescue
 
 on:
@@ -39,4 +39,4 @@ jobs:
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh issue create -R "${{ github.repository }}" --title "A rescue fork or push failed" --body-file failures.txt
+        run: gh issue create -R "${{ github.repository }}" --title "A rescue fork, push or deletion failed" --body-file failures.txt

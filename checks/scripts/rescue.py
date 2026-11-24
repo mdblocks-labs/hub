@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Rescue forks (hub-repo.md §9): after a merge, fork each newly listed
 library into `mdblocks-hub` as `<owner>--<name>` and push the tag
-`hub/<commit>` for its listed commit. Fetches with Git and never checks a
+`hub/<commit>` for its listed commit, and delete the fork of each entry the
+merge removed. Fetches with Git and never checks a
 tree out. RESCUE_TOKEN is an installation token of the rescue app on
 `mdblocks-hub`; failures are printed, one per line, for an issue.
 
@@ -43,7 +44,8 @@ def api(token, method, path, body=None):
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            return json.load(response)
+            body = response.read()
+            return json.loads(body) if body else {}
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return None
@@ -73,13 +75,26 @@ def rescue(token, coordinate, upstream, commit):
             f"{commit}:refs/tags/hub/{commit}")
 
 
+def unfork(token, coordinate):
+    """Deletes the removed entry's fork; one already gone is fine."""
+    owner, name = coordinate.split("/")
+    api(token, "DELETE", f"repos/{ORG}/{owner}--{name}")
+
+
 def main():
     import os
     before, after = sys.argv[1:3]
     token = os.environ["RESCUE_TOKEN"]
     old = listed(before) if before.strip("0") else {}
+    new = listed(after)
     failures = []
-    for coordinate, (upstream, commit) in sorted(listed(after).items()):
+    for coordinate in sorted(set(old) - set(new)):
+        try:
+            unfork(token, coordinate)
+            print(f"deleted the fork of {coordinate}")
+        except Exception as e:  # the removal stands; the issue asks a maintainer to delete it
+            failures.append(f"{coordinate}: deleting its fork: {type(e).__name__}: {str(e).replace(token, '***')}")
+    for coordinate, (upstream, commit) in sorted(new.items()):
         if old.get(coordinate, (None, None))[1] == commit:
             continue
         try:

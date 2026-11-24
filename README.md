@@ -37,6 +37,9 @@ The full rules are in the [Hub repository specification](https://mdblocks.com/do
 
 ## Reporting a library
 
-Every Hub page has a Report link to this repository's
-[issue form](https://github.com/mdblocks-labs/hub/issues/new?template=report.yml).
-For a security problem that should not be public, see [SECURITY.md](SECURITY.md).
+Every Hub page has two report links. **Report abuse** is private: an email to
+[abuse@mdblocks.com](mailto:abuse@mdblocks.com), for malware, copyright,
+licence, trademark and harassment. **Report a problem** opens this repository's
+public [issue form](https://github.com/mdblocks-labs/hub/issues/new?template=report.yml),
+for a library that is broken or out of date. For a vulnerability that should
+not be public, see [SECURITY.md](SECURITY.md).
