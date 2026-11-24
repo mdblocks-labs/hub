@@ -13,6 +13,12 @@ permissions:
   contents: read
   issues: write
 
+# One run at a time, in order, so a deletion and a later fork of the same name
+# never interleave.
+concurrency:
+  group: rescue
+  cancel-in-progress: false
+
 jobs:
   rescue:
     runs-on: ubuntu-24.04

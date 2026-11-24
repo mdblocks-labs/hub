@@ -76,7 +76,8 @@ def rescue(token, coordinate, upstream, commit):
 
 
 def unfork(token, coordinate):
-    """Deletes the removed entry's fork; one already gone is fine."""
+    """Deletes the removed entry's fork; one already gone is fine. The caller
+    checks first that the latest `main` does not list the name again."""
     owner, name = coordinate.split("/")
     api(token, "DELETE", f"repos/{ORG}/{owner}--{name}")
 
@@ -87,8 +88,12 @@ def main():
     token = os.environ["RESCUE_TOKEN"]
     old = listed(before) if before.strip("0") else {}
     new = listed(after)
+    # A late or retried run must not delete the fork of a listing published
+    # again since: compare with the latest main, not only this push.
+    git("fetch", "--quiet", "origin", "main")
+    latest = listed("FETCH_HEAD")
     failures = []
-    for coordinate in sorted(set(old) - set(new)):
+    for coordinate in sorted(set(old) - set(new) - set(latest)):
         try:
             unfork(token, coordinate)
             print(f"deleted the fork of {coordinate}")
