@@ -98,6 +98,9 @@ def main():
     for fork in sorted(set(forks(token)) - set(wanted)):
         try:
             api(token, "DELETE", f"repos/{ORG}/{fork}")
+            # GitHub answers 404 to a delete it refuses too, so check it is gone.
+            if api(token, "GET", f"repos/{ORG}/{fork}") is not None:
+                raise RuntimeError("the fork is still there")
             print(f"deleted {ORG}/{fork}")
         except Exception as e:  # the removal stands; the issue asks a maintainer to delete it
             failures.append(f"{fork}: deleting it: {type(e).__name__}: {str(e).replace(token, '***')}")
