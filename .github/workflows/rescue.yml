@@ -38,9 +38,7 @@ jobs:
       - name: Fork and tag
         env:
           RESCUE_TOKEN: ${{ steps.token.outputs.token }}
-          BEFORE: ${{ github.event.before }}
-          AFTER: ${{ github.sha }}
-        run: python3 checks/scripts/rescue.py "$BEFORE" "$AFTER" 2> failures.txt
+        run: python3 checks/scripts/rescue.py 2> failures.txt
       - name: Open an issue for a failure
         if: failure()
         env:

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Rescue forks (hub-repo.md §9): after a merge, fork each newly listed
 library into `mdblocks-hub` as `<owner>--<name>` and push the tag
-`hub/<commit>` for its listed commit, and delete the fork of each entry the
-merge removed. Fetches with Git and never checks a
+`hub/<commit>` for its listed commit, and delete every fork no entry lists. Fetches with Git and never checks a
 tree out. RESCUE_TOKEN is an installation token of the rescue app on
 `mdblocks-hub`; failures are printed, one per line, for an issue.
 
-    rescue.py BEFORE AFTER      (run in a checkout of this repository)
+    rescue.py      (run in a checkout of this repository)
 """
 import json
 import subprocess
@@ -75,32 +74,39 @@ def rescue(token, coordinate, upstream, commit):
             f"{commit}:refs/tags/hub/{commit}")
 
 
-def unfork(token, coordinate):
-    """Deletes the removed entry's fork; one already gone is fine. The caller
-    checks first that the latest `main` does not list the name again."""
-    owner, name = coordinate.split("/")
-    api(token, "DELETE", f"repos/{ORG}/{owner}--{name}")
+def forks(token):
+    """The names of every repository in the organisation."""
+    names, page = [], 1
+    while True:
+        batch = api(token, "GET", f"orgs/{ORG}/repos?per_page=100&page={page}") or []
+        names += [r["name"] for r in batch]
+        if len(batch) < 100:
+            return names
+        page += 1
 
 
 def main():
     import os
-    before, after = sys.argv[1:3]
     token = os.environ["RESCUE_TOKEN"]
-    old = listed(before) if before.strip("0") else {}
-    new = listed(after)
-    # A late or retried run must not delete the fork of a listing published
-    # again since: compare with the latest main, not only this push.
+    # Every run reconciles with the latest main, not with the push that
+    # started it, so a skipped, late or re-run job leaves nothing behind.
     git("fetch", "--quiet", "origin", "main")
     latest = listed("FETCH_HEAD")
+    if not latest:
+        # An empty read is far likelier a fault than a Hub with nothing listed.
+        print("FAILED the latest main lists no entry; nothing was deleted", file=sys.stderr)
+        return 1
+    wanted = {coordinate.replace("/", "--"): coordinate for coordinate in latest}
     failures = []
-    for coordinate in sorted(set(old) - set(new) - set(latest)):
+    for fork in sorted(set(forks(token)) - set(wanted)):
         try:
-            unfork(token, coordinate)
-            print(f"deleted the fork of {coordinate}")
+            api(token, "DELETE", f"repos/{ORG}/{fork}")
+            print(f"deleted {ORG}/{fork}")
         except Exception as e:  # the removal stands; the issue asks a maintainer to delete it
-            failures.append(f"{coordinate}: deleting its fork: {type(e).__name__}: {str(e).replace(token, '***')}")
-    for coordinate, (upstream, commit) in sorted(new.items()):
-        if old.get(coordinate, (None, None))[1] == commit:
+            failures.append(f"{fork}: deleting it: {type(e).__name__}: {str(e).replace(token, '***')}")
+    for fork, coordinate in sorted(wanted.items()):
+        upstream, commit = latest[coordinate]
+        if api(token, "GET", f"repos/{ORG}/{fork}/git/ref/tags/hub/{commit}") is not None:
             continue
         try:
             rescue(token, coordinate, upstream, commit)
