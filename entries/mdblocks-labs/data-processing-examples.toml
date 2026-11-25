@@ -6,8 +6,3 @@ repository_id = 1468324697
 commit = "1a773b912f415b72c03234c8c0846a61d39da122"
 tag = "v0.1.1"
 reviewer = "ShahyarTaheri"
-
-[[reviewed.cleared]]
-check = "codeql"
-date = 2026-11-23
-reviewer = "ShahyarTaheri"
