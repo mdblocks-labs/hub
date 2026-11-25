@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Rescue forks (hub-repo.md §9): after a merge, fork each newly listed
 library into `mdblocks-hub` as `<owner>--<name>` and push the tag
-`hub/<commit>` for its listed commit. Fetches with Git and never checks a
+`hub/<commit>` for its listed commit, and delete every fork no entry lists. Fetches with Git and never checks a
 tree out. RESCUE_TOKEN is an installation token of the rescue app on
 `mdblocks-hub`; failures are printed, one per line, for an issue.
 
-    rescue.py BEFORE AFTER      (run in a checkout of this repository)
+    rescue.py      (run in a checkout of this repository)
 """
 import json
 import subprocess
@@ -24,13 +24,14 @@ def git(*args, **kw):
 
 
 def listed(revision):
-    """`{"owner/name": (source, commit)}` at a revision of this repository."""
+    """`{"owner/name": (source, [commits])}` at a revision of this repository,
+    every reviewed commit oldest first. A failed read raises."""
     out = {}
     names = git("ls-tree", "-r", "--name-only", revision, "--", "entries/").split()
     for path in names:
         entry = tomllib.loads(git("show", f"{revision}:{path}"))
         coordinate = path.removeprefix("entries/").removesuffix(".toml")
-        out[coordinate] = (entry["source"].removeprefix("github:"), entry["reviewed"][-1]["commit"])
+        out[coordinate] = (entry["source"].removeprefix("github:"), [r["commit"] for r in entry["reviewed"]])
     return out
 
 
@@ -43,7 +44,8 @@ def api(token, method, path, body=None):
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            return json.load(response)
+            body = response.read()
+            return json.loads(body) if body else {}
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return None
@@ -73,20 +75,45 @@ def rescue(token, coordinate, upstream, commit):
             f"{commit}:refs/tags/hub/{commit}")
 
 
+def forks(token):
+    """The names of every repository in the organisation."""
+    names, page = [], 1
+    while True:
+        batch = api(token, "GET", f"orgs/{ORG}/repos?per_page=100&page={page}") or []
+        names += [r["name"] for r in batch]
+        if len(batch) < 100:
+            return names
+        page += 1
+
+
 def main():
     import os
-    before, after = sys.argv[1:3]
     token = os.environ["RESCUE_TOKEN"]
-    old = listed(before) if before.strip("0") else {}
+    # Every run reconciles with the latest main, not with the push that
+    # started it, so a skipped, late or re-run job leaves nothing behind.
+    git("fetch", "--quiet", "origin", "main")
+    latest = listed("FETCH_HEAD")
+    wanted = {coordinate.replace("/", "--"): coordinate for coordinate in latest}
     failures = []
-    for coordinate, (upstream, commit) in sorted(listed(after).items()):
-        if old.get(coordinate, (None, None))[1] == commit:
-            continue
+    for fork in sorted(set(forks(token)) - set(wanted)):
         try:
-            rescue(token, coordinate, upstream, commit)
-            print(f"rescued {coordinate} at {commit}")
-        except Exception as e:  # each entry stands alone; the listing never waits
-            failures.append(f"{coordinate} at {commit}: {type(e).__name__}: {str(e).replace(token, '***')}")
+            api(token, "DELETE", f"repos/{ORG}/{fork}")
+            # GitHub answers 404 to a delete it refuses too, so check it is gone.
+            if api(token, "GET", f"repos/{ORG}/{fork}") is not None:
+                raise RuntimeError("the fork is still there")
+            print(f"deleted {ORG}/{fork}")
+        except Exception as e:  # the removal stands; the issue asks a maintainer to delete it
+            failures.append(f"{fork}: deleting it: {type(e).__name__}: {str(e).replace(token, '***')}")
+    for fork, coordinate in sorted(wanted.items()):
+        upstream, commits = latest[coordinate]
+        for commit in commits:
+            try:
+                if api(token, "GET", f"repos/{ORG}/{fork}/git/ref/tags/hub/{commit}") is not None:
+                    continue
+                rescue(token, coordinate, upstream, commit)
+                print(f"rescued {coordinate} at {commit}")
+            except Exception as e:  # each commit stands alone; the listing never waits
+                failures.append(f"{coordinate} at {commit}: {type(e).__name__}: {str(e).replace(token, '***')}")
     for failure in failures:
         print(f"FAILED {failure}", file=sys.stderr)
     return 1 if failures else 0
