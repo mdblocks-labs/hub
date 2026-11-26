@@ -11,3 +11,8 @@ reviewer = "ShahyarTaheri"
 commit = "dfba64e8bec68baa28394322377c543f9bff3b7c"
 tag = "v0.2.0"
 reviewer = "ShahyarTaheri"
+
+[[reviewed]]
+commit = "47687fe18aed80e3612b45fcf4c76914c6686d18"
+tag = "v0.2.1"
+reviewer = "ShahyarTaheri"
