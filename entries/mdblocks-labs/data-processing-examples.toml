@@ -6,3 +6,8 @@ repository_id = 1468324697
 commit = "1a773b912f415b72c03234c8c0846a61d39da122"
 tag = "v0.1.1"
 reviewer = "ShahyarTaheri"
+
+[[reviewed]]
+commit = "dfba64e8bec68baa28394322377c543f9bff3b7c"
+tag = "v0.2.0"
+reviewer = "ShahyarTaheri"

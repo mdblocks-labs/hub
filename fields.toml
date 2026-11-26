@@ -77,12 +77,12 @@ color = "#c48139"
 [[field.domain]]
 name = "Tables"
 icon = "list-checks"
-applications = ["Cleaning", "Validation", "Extraction"]
+applications = ["Cleaning", "Validation", "Extraction", "Reconciliation"]
 
 [[field.domain]]
 name = "Reports"
 icon = "file-text"
-applications = ["Charts", "Documents"]
+applications = ["Charts", "Documents", "Dashboards"]
 
 [[field.domain]]
 name = "Integration"
