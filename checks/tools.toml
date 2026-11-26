@@ -5,8 +5,8 @@
 
 [tools.mdb]
 # The x86_64-unknown-linux-musl archive.
-version = "0.1.10"
-sha256 = "601298e7edae6840ddc85dd0dfd4e953df691b74c756a5dfdd8f1aa7c334bd54"
+version = "0.1.11"
+sha256 = "cdd9d1cc5c0cfbc2abeaef17205882aa71d76cae71a48a844faf812856be3177"
 
 [tools.semgrep]
 version = "1.183.0"
