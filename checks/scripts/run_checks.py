@@ -161,8 +161,8 @@ class Library:
         if errors:
             raise Refused(f"{len(errors)} errors; first: {first(errors)}")
         if warnings:
-            return "flagged", f"{len(warnings)} warnings; first: {first(warnings)}"
-        return "passed", f"No errors or warnings in {len(self.members)} blocks"
+            return "action_required", f"{len(warnings)} warnings; first: {first(warnings)}"
+        return "success", f"No errors or warnings in {len(self.members)} blocks"
 
     def effects(self):
         found = []
@@ -190,8 +190,8 @@ class Library:
                     continue
             found.append(f"{text.split('(')[0].strip()} in {rel} line {line}")
         if found:
-            return "flagged", f"{len(found)} findings; first: {found[0]}"
-        return "passed", "No undeclared network, file, subprocess or environment use"
+            return "action_required", f"{len(found)} findings; first: {found[0]}"
+        return "success", "No undeclared network, file, subprocess or environment use"
 
     def lockfiles(self, root):
         """`(path, format)` of each lock (lockfile.md §1) below `root`."""
@@ -225,7 +225,7 @@ class Library:
     def dependencies(self):
         locks = self.lockfiles(self.lib)
         if not locks:
-            return "passed", "No lockfiles"
+            return "success", "No lockfiles"
         args = [str(self.bin / "osv-scanner"), "scan", "source", "--format", "json"]
         for path, fmt in locks:
             args += ["-L", f"{fmt}:{path}"]
@@ -249,8 +249,8 @@ class Library:
             if key not in popular and any(distance(key, p) <= 2 for p in popular):
                 notes.append(f"{n} is close to a popular name")
         if notes:
-            return "flagged", f"{len(notes)} to review; first: {notes[0]}"
-        return "passed", f"{len(locks)} lockfiles, {len(names)} packages, no malicious or new packages"
+            return "action_required", f"{len(notes)} to review; first: {notes[0]}"
+        return "success", f"{len(locks)} lockfiles, {len(names)} packages, no malicious or new packages"
 
     def secrets(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -260,8 +260,8 @@ class Library:
             findings = json.loads(report.read_text() or "[]")
         if findings:
             f = findings[0]
-            return "flagged", f"{len(findings)} findings; first: {f['RuleID']} in {self.rel(f['File'])} line {f['StartLine']}"
-        return "passed", "No secrets found"
+            return "action_required", f"{len(findings)} findings; first: {f['RuleID']} in {self.rel(f['File'])} line {f['StartLine']}"
+        return "success", "No secrets found"
 
     def codeql(self):
         names = [p.name for p in self.files]
@@ -270,7 +270,7 @@ class Library:
             ("javascript", any(n.endswith(JS_SUFFIXES) for n in names)),
         ) if present]
         if not languages:
-            return "not_run", "The tree holds no Python or JavaScript"
+            return "skipped", "The tree holds no Python or JavaScript"
         found = []
         with tempfile.TemporaryDirectory() as tmp:
             for lang in languages:
@@ -293,8 +293,8 @@ class Library:
                         line = where.get("region", {}).get("startLine", "?")
                         found.append(f"{r['ruleId']} in {where['artifactLocation']['uri']} line {line}")
         if found:
-            return "flagged", f"{len(found)} results; first: {found[0]}"
-        return "passed", f"No error or warning results ({', '.join(languages)})"
+            return "action_required", f"{len(found)} results; first: {found[0]}"
+        return "success", f"No error or warning results ({', '.join(languages)})"
 
     def shape(self):
         # surrogateescape gives a non-UTF-8 name the same str as the file system's.
@@ -303,8 +303,8 @@ class Library:
         if refusals:
             raise Refused(f"{len(refusals)} refused; first: {refusals[0]}")
         if flags:
-            return "flagged", f"{len(flags)} flagged; first: {flags[0]}"
-        return "passed", "No binaries, install hooks, links, or minified or obfuscated files"
+            return "action_required", f"{len(flags)} flagged; first: {flags[0]}"
+        return "success", "No binaries, install hooks, links, or minified or obfuscated files"
 
     def licence(self):
         # Licence files only: no package metadata or README counts (hub-repo.md §4).
@@ -319,8 +319,8 @@ class Library:
             raise Refused(f"{matched[0]['filename']} is not an OSI-approved licence ({spdx or 'unknown'})")
         declared = self.cards["card"].get("license")
         if declared and declared != spdx:
-            return "flagged", f"library.md says {declared}; {matched[0]['filename']} is {spdx}"
-        return "passed", f"{spdx} in {matched[0]['filename']}"
+            return "action_required", f"library.md says {declared}; {matched[0]['filename']} is {spdx}"
+        return "success", f"{spdx} in {matched[0]['filename']}"
 
     def pickle(self):
         found = [
@@ -328,8 +328,8 @@ class Library:
             for rule, rel, line, text in self.semgrep("pickle")
         ]
         if found:
-            return "flagged", f"Loads pickle data: {found[0]}" + (f" (and {len(found) - 1} more)" if len(found) > 1 else "")
-        return "passed", "No pickle loads or pickle-family files"
+            return "action_required", f"Loads pickle data: {found[0]}" + (f" (and {len(found) - 1} more)" if len(found) > 1 else "")
+        return "success", "No pickle loads or pickle-family files"
 
     def refs(self):
         refs = []
@@ -343,11 +343,11 @@ class Library:
                 elif inside and (m := re.match(r"""^\s+[\w.-]+:\s*["']?((?:hf|s3|https?)://[^\s"']+)""", line)):
                     refs.append((self.rel(preset), m.group(1)))
         if not refs:
-            return "not_run", "No external data refs in presets"
+            return "skipped", "No external data refs in presets"
         failed = [f"{url} ({status})" for _, url in refs if (status := head(url)) != "ok"]
         if failed:
-            return "flagged", f"{len(failed)} of {len(refs)} refs do not resolve; first: {failed[0]}"
-        return "passed", f"{len(refs)} external refs resolve"
+            return "action_required", f"{len(failed)} of {len(refs)} refs do not resolve; first: {failed[0]}"
+        return "success", f"{len(refs)} external refs resolve"
 
     def export(self, records, out_dir):
         """`mdb library catalog --sources` over this entry and fields.toml
@@ -364,15 +364,15 @@ class Library:
             # Flags are the merge rule's business; this run asks only whether the cards build.
             checks = tmp / "checks" / self.owner / self.name / f"{self.opts.commit}.json"
             checks.parent.mkdir(parents=True)
-            plain = [dict(r, result="passed", reason=r["reason"]) if r["result"] == "flagged" else r for r in records]
-            checks.write_text(json.dumps({"checks": [{k: v for k, v in r.items() if k != "reviewed"} for r in plain]}))
+            plain = [dict(r, result="success") if r["result"] == "action_required" else r for r in records]
+            checks.write_text(json.dumps({"checks": plain}))
             done = run([self.mdb, "library", "catalog", str(tmp / "hub"), str(tmp / "out"),
                         "--checks", str(tmp / "checks"), "--sources", str(tmp / "sources")], ok=(0, 2))
             if done.returncode:
                 raise Refused(done.stderr.strip().splitlines()[-1] if done.stderr.strip() else "the cards cannot be built")
             detail = tmp / "out/hub/v3" / self.owner / self.name / f"{self.opts.commit}.json"
             members = len(json.loads(detail.read_text())["members"])
-        return "passed", f"Cards built for {members} blocks"
+        return "success", f"Cards built for {members} blocks"
 
 
 def distance(a, b):
@@ -432,19 +432,19 @@ def main():
             continue
         records[check] = {"check": check, "tool": tool, "version": library.version[tool],
                           "result": result, "reason": one_line(reason)}
-        print(f"{check:13} {result:8} {records[check]['reason']}")
+        print(f"{check:13} {result:15} {records[check]['reason']}")
     if not refusals:
         ordered = [records[c] if c in records else {"check": c, "tool": t, "version": library.version[t],
-                   "result": "passed", "reason": "Cards built"} for c, t in CHECKS]
+                   "result": "success", "reason": "Cards built"} for c, t in CHECKS]
         try:
             result, reason = library.export(ordered, out_dir)
             records["export"] = {"check": "export", "tool": "mdb", "version": library.version["mdb"],
                                  "result": result, "reason": one_line(reason)}
-            print(f"{'export':13} {result:8} {reason}")
+            print(f"{'export':13} {result:15} {reason}")
         except Refused as refusal:
             refusals.append({"check": "export", "reason": one_line(refusal)})
     for refusal in refusals:
-        print(f"{refusal['check']:13} REFUSED  {refusal['reason']}")
+        print(f"{refusal['check']:13} failure         {refusal['reason']}")
     (out_dir / f"{opts.commit}.refusals.json").write_text(json.dumps(refusals, indent=2) + "\n")
     if refusals:
         return 1

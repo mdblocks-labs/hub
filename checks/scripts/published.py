@@ -9,9 +9,10 @@
         checks/tools.toml.
 
     published.py combine HUB PUBLISHED FRESH OUT
-        Take each fresh result, except one that flags a check no `cleared`
-        record covers while a published one exists: keep that one, and print a
-        note for the maintainers. A new flag delists nothing.
+        Take each fresh result, except one that is action_required for a check
+        the published one is not: keep the published one, since the reviewer
+        approved only the flags they saw, and print a note for the maintainers.
+        A new flag delists nothing.
 """
 import json
 import shutil
@@ -74,23 +75,19 @@ def fetch(hub, base_url, out):
 
 
 def combine(hub, published, fresh, out):
-    cleared = {
-        f"{owner}/{name}/{entry['reviewed'][-1]['commit']}": {
-            c["check"] for c in entry["reviewed"][-1].get("cleared", [])
-        }
-        for owner, name, entry in entries(hub)
-    }
     shutil.copytree(published, out, dirs_exist_ok=True)
     for path in sorted(Path(fresh).glob("*/*/*.json")):
         if path.name.count(".") > 1:  # .compare.json, .refusals.json
             continue
         key = str(path.relative_to(fresh)).removesuffix(".json")
         checks = json.loads(path.read_text())["checks"]
-        uncleared = [r["check"] for r in checks if r["result"] == "flagged" and r["check"] not in cleared.get(key, set())]
         target = Path(out, f"{key}.json")
-        if uncleared and target.exists():
-            print(f"{key}: a recheck flags {', '.join(uncleared)}, which no cleared record covers; the earlier records stay")
-            continue
+        if target.exists():
+            approved = {r["check"] for r in json.loads(target.read_text())["checks"] if r["result"] == "action_required"}
+            new = [r["check"] for r in checks if r["result"] == "action_required" and r["check"] not in approved]
+            if new:
+                print(f"{key}: a recheck flags {', '.join(new)}, which the reviewer did not approve; the earlier records stay")
+                continue
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(path, target)
 
